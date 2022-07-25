@@ -9,6 +9,15 @@
 	let sourceType = Array(allSourceLabels.length).fill(true).map((_,i) => i==0)
 	let numberOfMicrophones = 3
 	let numberOfSources = 3
+
+	let sourceFocus = null
+	let micFocus = null
+
+	function setFocus(source = null, mic = null) {
+		sourceFocus = source
+		micFocus = mic
+	}
+
 	$: targetAngles = allSources.slice(0, numberOfSources)
 	$: microphonePositions = allMicrophonePositions.slice(0, numberOfMicrophones).sort((a,b) => (a-b))
 	$: micLabels = Array(numberOfMicrophones).fill(null).map((_,i) => i).sort((a,b) => (allMicrophonePositions[a]-allMicrophonePositions[b])).map((i) => allMicLabels[i])
@@ -27,7 +36,7 @@
 
 			const dot = (waveX*targetX + waveY*targetY) / targetLength
 
-			return [targetX/targetLength*dot, targetY/targetLength*dot, dot, microphonePositions[targetAngle > Math.PI/2 ? 0 : microphonePositions.length-1] - mX]
+			return [targetX/targetLength*dot, targetY/targetLength*dot, dot, microphonePositions[targetAngle > Math.PI/2 ? 0 : microphonePositions.length-1] - mX, microphonePositions[targetAngle < Math.PI/2 ? 0 : microphonePositions.length-1] - mX]
 		})
 	})
 </script>
@@ -52,6 +61,19 @@
 		max-width: 100ch;
 		margin: auto;
 	}
+
+	.focused {
+		stroke: black;
+		border: 1px solid black;
+	}
+
+	mtd {
+		border: 1px solid transparent;
+	}
+
+	mtd {
+		cursor: pointer;
+	}
 </style>
 <article>
 	
@@ -63,9 +85,16 @@
 <p>
 	Below you can explore recording multiple sound sources with multiple microphones results yields a linear transformation in the spectral domain. If there are at least as many microphones as sound sources the linear transformation can be inverted to recover the individual source signals. A common case is to select one source as desired signal and assume the other sources as noise. Then one can reduce the noise by reverting the transformation and then selecting the clean source.
 </p>
+<p>
+The time delay by which the signals arive at the microphones result a phase shift depending on the frequency. This phase shift corresponds to a multiplication in the spectral domain. That is why the sum of the signals can be modelled by a linear transformation.
+</p>
 
 <p>
-This tool is not yet fully implemented.
+	Click on elements in the Matrix to highlight the corresponding phase shift.
+</p>
+
+<p>
+This tool is not yet fully implemented. Currently this tool makes use of MathML to render a matrix multiplication. MathML is not supported in Google Chrome. Please use Firefox for the full experience.
 </p>
 
 {#if numberOfSources > numberOfMicrophones}
@@ -113,9 +142,9 @@ This tool is not yet fully implemented.
       <mtable>
 				{#each microphonePositions as m,j}
          <mtr>
-            <mtd><msub>  
+            <mtd class:focused={micFocus==j} on:mousedown={() => {setFocus(null,j)}}><msub>  
       <mi>M</mi>  
-      <mn>{allMicLabels[j]}</mn>  
+      <mn>{micLabels[j]}</mn>  
    </msub></mtd>
          </mtr>
 	{/each}
@@ -125,11 +154,11 @@ This tool is not yet fully implemented.
 		<mo>=</mo>
 	<mo>[</mo>
       <mtable>
-				{#each targetAngles as t,i}
-         <mtr>
 					 {#each microphonePositions as m,j}
+         <mtr>
+				{#each targetAngles as t,i}
 					 
-            <mtd><msub>  
+    <mtd style:color={sourceColors[i]} class:focused={(micFocus==j && sourceFocus==i) || (micFocus==null && sourceFocus==i) || (micFocus==j && sourceFocus==null)} on:mousedown={() => {setFocus(i,j)}}><msub>  
       <mi>a</mi>  
       <mn>{i},{j}</mn>  
    </msub></mtd>
@@ -146,7 +175,7 @@ This tool is not yet fully implemented.
       <mtable>
 				{#each targetAngles as t,i}
          <mtr>
-            <mtd><msub>  
+            <mtd style:color={sourceColors[i]} class:focused={sourceFocus==i} on:mousedown={() => {setFocus(i)}}><msub>  
       <mi>S</mi>  
       <mn>{allSourceLabels[i]}</mn>  
    </msub></mtd>
@@ -178,19 +207,31 @@ This tool is not yet fully implemented.
 		<path d="M{microphonePositions[0]+w[0][0]},{w[0][1]} L{microphonePositions[w.length-1]+w[w.length-1][0]},{w[w.length-1][1]}" stroke={sourceColors[i]} stroke-width="4" />
 	
 	
-	<circle r="50" cx={(microphonePositions[0]+w[0][0]+microphonePositions[w.length-1]+w[w.length-1][0])/2 + -Math.cos(targetAngles[i]) * 40} cy={(w[0][1]+w[w.length-1][1])/2 -Math.sin(targetAngles[i]) * 40} fill={sourceColors[i]} opacity="0.1" /> 
 	<circle r="5" cx={(microphonePositions[0]+w[0][0]+microphonePositions[w.length-1]+w[w.length-1][0])/2 + -Math.cos(targetAngles[i]) * 40} cy={(w[0][1]+w[w.length-1][1])/2 -Math.sin(targetAngles[i]) * 40} fill={sourceColors[i]} /> 
 	
-	<text fill={sourceColors[i]} x={(microphonePositions[0]+w[0][0]+microphonePositions[w.length-1]+w[w.length-1][0])/2 + -Math.cos(targetAngles[i]) * 40} y={(w[0][1]+w[w.length-1][1])/2 -Math.sin(targetAngles[i]) * 40 -15} text-anchor="middle">Source {allSourceLabels[i]}</text>
+	<text class:focused={sourceFocus == i} fill={sourceColors[i]} x={(microphonePositions[0]+w[0][0]+microphonePositions[w.length-1]+w[w.length-1][0])/2 + -Math.cos(targetAngles[i]) * 40} y={(w[0][1]+w[w.length-1][1])/2 -Math.sin(targetAngles[i]) * 40 -15} text-anchor="middle">Source {allSourceLabels[i]}</text>
 
+	<circle class:focused={sourceFocus == i} cursor="pointer" on:mousedown={() => {setFocus(i)}} r="50" cx={(microphonePositions[0]+w[0][0]+microphonePositions[w.length-1]+w[w.length-1][0])/2 + -Math.cos(targetAngles[i]) * 40} cy={(w[0][1]+w[w.length-1][1])/2 -Math.sin(targetAngles[i]) * 40} fill={sourceColors[i]} opacity="0.1" /> 
 			{/if}
 	{/each}
 	
 	
 	{#each microphonePositions as p, i (i)}
-	<circle r="20" cx={p} cy={0} fill="white" stroke="black" stroke-width="4" />
-	<text x={p} y={45+ (i%2)*30} text-anchor="middle">Microphone {micLabels[i]}</text>
+	<circle cursor="pointer" on:mousedown={() => {setFocus(null, i)}} class:focused={micFocus == i} r="20" cx={p} cy={0} fill="white" stroke="black" stroke-width="4" />
+	<text cursor="pointer" on:mousedown={() => {setFocus(null, i)}}  class:focused={micFocus == i} x={p} y={45+ (i%2)*30} text-anchor="middle">Microphone {micLabels[i]}</text>
+
+
 	{/each}
+
+	{#if sourceFocus != null && micFocus != null}
+
+	<path d="M{microphonePositions[micFocus]},{0} l{-waveDirections[sourceFocus][microphonePositions.length-1-micFocus][0]/waveDirections[sourceFocus][microphonePositions.length-1-micFocus][2]*waveDirections[sourceFocus][micFocus][4]*Math.cos(targetAngles[sourceFocus])},{-waveDirections[sourceFocus][microphonePositions.length-1-micFocus][1]/waveDirections[sourceFocus][microphonePositions.length-1-micFocus][2]*waveDirections[sourceFocus][micFocus][4]*Math.cos(targetAngles[sourceFocus])}L{microphonePositions[targetAngles[sourceFocus] > Math.PI/2 ? microphonePositions.length-1 : 0]},{0}z" fill={sourceColors[sourceFocus]} fill-opacity="0.3" stroke="none" />
+	<path d="M{microphonePositions[micFocus]},{0} l{-waveDirections[sourceFocus][microphonePositions.length-1-micFocus][0]/waveDirections[sourceFocus][microphonePositions.length-1-micFocus][2]*waveDirections[sourceFocus][micFocus][4]*Math.cos(targetAngles[sourceFocus])},{-waveDirections[sourceFocus][microphonePositions.length-1-micFocus][1]/waveDirections[sourceFocus][microphonePositions.length-1-micFocus][2]*waveDirections[sourceFocus][micFocus][4]*Math.cos(targetAngles[sourceFocus])}" stroke={sourceColors[sourceFocus]}  stroke-width="10" stroke-linecap="round" />
+
+		<circle r="4" cx={microphonePositions[micFocus]} cy={0} fill={sourceColors[sourceFocus]} />
+
+
+	{/if}
 </svg>
 
 <p style="text-align: center;">
