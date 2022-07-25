@@ -13,6 +13,14 @@
 	let sourceFocus = null
 	let micFocus = null
 
+	$: if(sourceFocus != null && sourceFocus > numberOfSources-1) {
+		sourceFocus = null
+	}
+
+	$: if(micFocus != null && micFocus > numberOfMicrophones-1) {
+		micFocus = null
+	}
+
 	function setFocus(source = null, mic = null) {
 		sourceFocus = source
 		micFocus = mic
