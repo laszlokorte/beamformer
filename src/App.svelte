@@ -1,4 +1,6 @@
 <script>
+	const formatter = new Intl.NumberFormat('en-US', {minimumFractionDigits: 2,maximumFractionDigits: 2,})
+
 	let frequency = 10
 	let allMicLabels = 'ABCD'.split('')
 	let allSourceLabels = 'ABCD'.split('')
@@ -9,6 +11,8 @@
 	let sourceType = Array(allSourceLabels.length).fill(true).map((_,i) => i==0)
 	let numberOfMicrophones = 3
 	let numberOfSources = 3
+
+	let matrixStyle = 'abstract'
 
 	let sourceFocus = null
 	let micFocus = null
@@ -50,10 +54,11 @@
 </script>
 
 <style>
-	input[type=range] {
-		max-width: 10em;
-	}
 	
+	dl {
+		gap: 0 1em;
+	}
+
 	label, dt {
 		white-space: nowrap;
 	}
@@ -71,16 +76,44 @@
 	}
 
 	.focused {
-		stroke: black;
-		border: 1px solid black;
+		font-weight: bold;
+		border: 1px solid currentColor;
 	}
 
 	mtd {
 		border: 1px solid transparent;
+		padding: 3px;
 	}
 
 	mtd {
 		cursor: pointer;
+	}
+
+	.silent-checkbox {
+		display: none;
+	}
+
+	label {
+		cursor: pointer;
+	}
+
+	.silent-checkbox + label {
+		padding: 0.1em 0.3em;
+		border-radius: 2px;
+	}
+
+	.silent-checkbox:checked + label{
+		background-color: #333;
+		color: #fff;
+	}
+
+	dd {
+		margin: 0;
+	}
+
+	input[type="range"] {
+		width: 100%;
+		vertical-align: middle;
 	}
 </style>
 <article>
@@ -91,7 +124,7 @@
 </h1>
 
 <p>
-	Below you can explore recording multiple sound sources with multiple microphones results yields a linear transformation in the spectral domain. If there are at least as many microphones as sound sources the linear transformation can be inverted to recover the individual source signals. A common case is to select one source as desired signal and assume the other sources as noise. Then one can reduce the noise by reverting the transformation and then selecting the clean source.
+	Below you can explore how recording multiple sound sources with multiple microphones can be modelled as a linear transformation in the spectral domain. If there are at least as many microphones as sound sources the linear transformation can be inverted to recover the individual source signals. A common case is to select one source as desired signal and assume the other sources as noise. Then one can reduce the noise by reverting the transformation and then selecting the clean source.
 </p>
 <p>
 The time delay by which the signals arive at the microphones result a phase shift depending on the frequency. This phase shift corresponds to a multiplication in the spectral domain. That is why the sum of the signals can be modelled by a linear transformation.
@@ -105,21 +138,20 @@ The time delay by which the signals arive at the microphones result a phase shif
 This tool is not yet fully implemented. Currently this tool makes use of MathML to render a matrix multiplication. MathML is not supported in Google Chrome. Please use Firefox for the full experience.
 </p>
 
-{#if numberOfSources > numberOfMicrophones}
-<p style="background: #fcc;padding: 1em; color:#500;">
-	Number of Microphones must be greater or equal to the number of sources. Otherwise the resulting linear transformation can not be inverted.
-</p>
-{/if}
+
  
-<div style="display: grid; grid-template-columns: 1fr 1fr;">
-<dl style="display: grid; grid-template-columns: auto 1fr;">
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0 1em;">
+<dl style="display: grid; grid-template-columns: auto 1fr 3em; align-content: start;">
 		<dt>Number of Microphones</dt>
 
-	<dd><input type="number" min="1" max="{allMicLabels.length}" bind:value={numberOfMicrophones} /></dd>
+	<dd><input type="range" min="1" max="{allMicLabels.length}" bind:value={numberOfMicrophones} /></dd>
+	<dd>{numberOfMicrophones}</dd>
 	<dt>Number of Sources</dt>
-	<dd><input type="number" min="1" max="{allMicLabels.length}" bind:value={numberOfSources} /></dd>
+	<dd><input type="range" min="1" max="{allMicLabels.length}" bind:value={numberOfSources} /></dd>
+	<dd>{numberOfSources}</dd>
 	<dt>Wavelength</dt>
 	<dd><input type="range" min="5" step="5" max="{200}" bind:value={frequency} /></dd>
+	<dd>{frequency}</dd>
 </dl>
 
 
@@ -130,20 +162,13 @@ This tool is not yet fully implemented. Currently this tool makes use of MathML 
 	{/each}
 </dl>
 
-<dl style="display: grid; grid-template-columns: auto auto auto auto;align-content: start; justify-content: start;">
-	{#each targetAngles as p,s}
-	<dt style="color:{sourceColors[s]}">Source {allSourceLabels[s]}</dt>
-	<dd><input type="checkbox" bind:checked={sourceVisiblity[s]} /></dd>
-	<dd><input type="range" min={Math.PI*0.02} max={Math.PI*(1-0.02)} step={Math.PI/500} bind:value={allSources[s]} /></dd>
-	<dd style="display: flex;">
-		<label class="radio-label"><input type="radio" bind:group={sourceType[s]} value={true} /> Signal</label>
-		<label class="radio-label"><input type="radio" bind:group={sourceType[s]} value={false} /> Noise</label>
-	</dd>
+{#if numberOfSources > numberOfMicrophones}
+<p style="background: #fcc;padding: 1em; color:#500; grid-column: span 2;">
+	Number of Microphones must be greater or equal to the number of sources. Otherwise the resulting linear transformation can not be inverted.
+</p>
+{/if}
 
-	{/each}
-</dl>
-	<div style="display: grid; align-content: center; justify-content: center;">
-	
+<div style="display: grid; align-content: center; justify-content: center;">
 		<math xmlns = "http://www.w3.org/1998/Math/MathML" >
 <mrow>
 	 <mo>[</mo>
@@ -166,10 +191,24 @@ This tool is not yet fully implemented. Currently this tool makes use of MathML 
          <mtr>
 				{#each targetAngles as t,i}
 					 
-    <mtd style:color={sourceColors[i]} class:focused={(micFocus==j && sourceFocus==i) || (micFocus==null && sourceFocus==i) || (micFocus==j && sourceFocus==null)} on:mousedown={() => {setFocus(i,j)}}><msub>  
+    <mtd style:color={sourceColors[i]} class:focused={(micFocus==j && sourceFocus==i) || (micFocus==null && sourceFocus==i) || (micFocus==j && sourceFocus==null)} on:mousedown={() => {setFocus(i,j)}}>
+    {#if matrixStyle=='abstract'}
+    <msub>  
       <mi>a</mi>  
       <mn>{i},{j}</mn>  
-   </msub></mtd>
+   </msub>
+  {:else}
+  <msup>
+     <mfenced>
+       <mrow>
+         <mi>&exponentiale;</mi>
+       </mrow>
+     </mfenced>
+     <mn>&ImaginaryI;2&pi;&middot;{formatter.format(((((microphonePositions[j] - microphonePositions[t<Math.PI/2 ? 0 : microphonePositions.length-1]) * Math.cos(t)/2)))/frequency)}</mn>
+   </msup>
+   {/if}
+
+</mtd>
 					 {/each}
          </mtr>
 	{/each}
@@ -194,10 +233,24 @@ This tool is not yet fully implemented. Currently this tool makes use of MathML 
       <mo>]</mo>
    </mrow>
 </math>
-</div>
+<div style="display: flex; justify-content: center;padding:1em; gap:0.5em;">
+		Show values: 
+		<input class="silent-checkbox" type="radio" bind:group={matrixStyle} value="abstract" id="matrix_style_abstract" /> <label for="matrix_style_abstract">No</label> 
+		<input class="silent-checkbox" type="radio" bind:group={matrixStyle} value="values" id="matrix_style_values" /> <label for="matrix_style_values">Yes</label> 
+	</div>
 </div>
 
-<svg viewBox="-600 -600 1200 700">
+<dl style="display: grid; grid-template-columns: auto auto 1fr;align-content: start; justify-content: start;">
+	{#each targetAngles as p,s}
+	<dt style="color:{sourceColors[s]}">Source {allSourceLabels[s]}</dt>
+	<dd><input type="checkbox" bind:checked={sourceVisiblity[s]} /></dd>
+	<dd><input style:accent-color={sourceColors[s]} type="range" min={Math.PI*0.02} max={Math.PI*(1-0.02)} step={Math.PI/500} bind:value={allSources[s]} /></dd>
+	{/each}
+</dl>
+	
+</div>
+
+<svg viewBox="-600 -700 1200 800">
 	<path d="M-350,0H350" stroke="black" stroke-width="2" />
 	<circle r="500" cx={0} cy={0} fill="none" stroke="gray" stroke-dasharray="20 50" /> 
 
@@ -217,16 +270,16 @@ This tool is not yet fully implemented. Currently this tool makes use of MathML 
 	
 	<circle r="5" cx={(microphonePositions[0]+w[0][0]+microphonePositions[w.length-1]+w[w.length-1][0])/2 + -Math.cos(targetAngles[i]) * 40} cy={(w[0][1]+w[w.length-1][1])/2 -Math.sin(targetAngles[i]) * 40} fill={sourceColors[i]} /> 
 	
-	<text class:focused={sourceFocus == i} fill={sourceColors[i]} x={(microphonePositions[0]+w[0][0]+microphonePositions[w.length-1]+w[w.length-1][0])/2 + -Math.cos(targetAngles[i]) * 40} y={(w[0][1]+w[w.length-1][1])/2 -Math.sin(targetAngles[i]) * 40 -15} text-anchor="middle">Source {allSourceLabels[i]}</text>
+	<text stroke="transparent" class:focused={sourceFocus == i} fill={sourceColors[i]} x={(microphonePositions[0]+w[0][0]+microphonePositions[w.length-1]+w[w.length-1][0])/2 + -Math.cos(targetAngles[i]) * 40} y={(w[0][1]+w[w.length-1][1])/2 -Math.sin(targetAngles[i]) * 40 -15} text-anchor="middle">Source {allSourceLabels[i]}</text>
 
-	<circle class:focused={sourceFocus == i} cursor="pointer" on:mousedown={() => {setFocus(i)}} r="50" cx={(microphonePositions[0]+w[0][0]+microphonePositions[w.length-1]+w[w.length-1][0])/2 + -Math.cos(targetAngles[i]) * 40} cy={(w[0][1]+w[w.length-1][1])/2 -Math.sin(targetAngles[i]) * 40} fill={sourceColors[i]} opacity="0.1" /> 
+	<circle stroke={sourceColors[i]} stroke-width={sourceFocus == i ? 4 : 0} class:focused={sourceFocus == i} cursor="pointer" on:mousedown={() => {setFocus(i)}} r="50" cx={(microphonePositions[0]+w[0][0]+microphonePositions[w.length-1]+w[w.length-1][0])/2 + -Math.cos(targetAngles[i]) * 40} cy={(w[0][1]+w[w.length-1][1])/2 -Math.sin(targetAngles[i]) * 40} fill={sourceColors[i]} fill-opacity="0.1" /> 
 			{/if}
 	{/each}
 	
 	
 	{#each microphonePositions as p, i (i)}
-	<circle cursor="pointer" on:mousedown={() => {setFocus(null, i)}} class:focused={micFocus == i} r="20" cx={p} cy={0} fill="white" stroke="black" stroke-width="4" />
-	<text cursor="pointer" on:mousedown={() => {setFocus(null, i)}}  class:focused={micFocus == i} x={p} y={45+ (i%2)*30} text-anchor="middle">Microphone {micLabels[i]}</text>
+	<circle cursor="pointer" on:mousedown={() => {setFocus(null, i)}} class:focused={micFocus == i} r="20" cx={p} cy={0} fill="white" stroke="black" stroke-width={micFocus == i ? 6 : 4} />
+	<text stroke="transparent" stroke-width="0" cursor="pointer" on:mousedown={() => {setFocus(null, i)}}  class:focused={micFocus == i} x={p} y={45+ (i%2)*30} text-anchor="middle">Microphone {micLabels[i]}</text>
 
 
 	{/each}
